@@ -57,6 +57,44 @@ func TestValidate_MissingRequiredField(t *testing.T) {
 	}
 }
 
+func lengthSchema() map[string]Rule {
+	minLen := 3
+	maxLen := 10
+	return map[string]Rule{
+		"username": {Kind: KindString, Required: true, MinLength: &minLen, MaxLength: &maxLen},
+	}
+}
+
+func TestValidate_StringLength_Valid(t *testing.T) {
+	data := decode(t, `{"username": "alice"}`)
+
+	errs := Validate(data, lengthSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_StringLength_TooShort(t *testing.T) {
+	data := decode(t, `{"username": "ab"}`)
+
+	errs := Validate(data, lengthSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "username" {
+		t.Fatalf("expected error for field %q, got %q", "username", errs[0].(*ValidationError).Field)
+	}
+}
+
+func TestValidate_StringLength_TooLong(t *testing.T) {
+	data := decode(t, `{"username": "waytoolongusername"}`)
+
+	errs := Validate(data, lengthSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
