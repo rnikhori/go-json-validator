@@ -19,6 +19,11 @@ const (
 type Rule struct {
 	Kind     Kind
 	Required bool
+
+	// MinLength and MaxLength constrain the length (in runes) of string
+	// values. A nil pointer means the bound is not enforced.
+	MinLength *int
+	MaxLength *int
 }
 
 // ValidationError describes a single validation failure for a field.
@@ -53,10 +58,43 @@ func Validate(data map[string]interface{}, schema map[string]Rule) []error {
 				Field:   field,
 				Message: fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value)),
 			})
+			continue
+		}
+
+		if err := checkStringLength(field, value, rule); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	return errs
+}
+
+// checkStringLength enforces rule.MinLength and rule.MaxLength against
+// string values. It is a no-op for non-string rules.
+func checkStringLength(field string, value interface{}, rule Rule) error {
+	if rule.Kind != KindString {
+		return nil
+	}
+
+	s, ok := value.(string)
+	if !ok {
+		return nil
+	}
+	length := len([]rune(s))
+
+	if rule.MinLength != nil && length < *rule.MinLength {
+		return &ValidationError{
+			Field:   field,
+			Message: fmt.Sprintf("must be at least %d characters long, got %d", *rule.MinLength, length),
+		}
+	}
+	if rule.MaxLength != nil && length > *rule.MaxLength {
+		return &ValidationError{
+			Field:   field,
+			Message: fmt.Sprintf("must be at most %d characters long, got %d", *rule.MaxLength, length),
+		}
+	}
+	return nil
 }
 
 // matchesKind reports whether value's runtime type is consistent with the
