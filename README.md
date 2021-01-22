@@ -21,6 +21,19 @@ if errs := validator.Validate(data, schema); len(errs) > 0 {
 }
 ```
 
+## String length rules
+
+Use `MinLength` and `MaxLength` to constrain the number of runes in a string field:
+
+```go
+minLen := 3
+maxLen := 20
+
+schema := map[string]validator.Rule{
+	"username": {Kind: validator.KindString, Required: true, MinLength: &minLen, MaxLength: &maxLen},
+}
+```
+
 Run the demo:
 
 ```sh
