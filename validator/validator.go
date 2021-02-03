@@ -24,6 +24,11 @@ type Rule struct {
 	// values. A nil pointer means the bound is not enforced.
 	MinLength *int
 	MaxLength *int
+
+	// Min and Max constrain numeric values (inclusive). A nil pointer
+	// means the bound is not enforced.
+	Min *float64
+	Max *float64
 }
 
 // ValidationError describes a single validation failure for a field.
@@ -62,6 +67,9 @@ func Validate(data map[string]interface{}, schema map[string]Rule) []error {
 		}
 
 		if err := checkStringLength(field, value, rule); err != nil {
+			errs = append(errs, err)
+		}
+		if err := checkNumericRange(field, value, rule); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -119,6 +127,33 @@ func matchesKind(value interface{}, kind Kind) bool {
 	default:
 		return false
 	}
+}
+
+// checkNumericRange enforces rule.Min and rule.Max against numeric values.
+// It is a no-op for non-numeric rules.
+func checkNumericRange(field string, value interface{}, rule Rule) error {
+	if rule.Kind != KindNumber {
+		return nil
+	}
+
+	n, ok := value.(float64)
+	if !ok {
+		return nil
+	}
+
+	if rule.Min != nil && n < *rule.Min {
+		return &ValidationError{
+			Field:   field,
+			Message: fmt.Sprintf("must be at least %g, got %g", *rule.Min, n),
+		}
+	}
+	if rule.Max != nil && n > *rule.Max {
+		return &ValidationError{
+			Field:   field,
+			Message: fmt.Sprintf("must be at most %g, got %g", *rule.Max, n),
+		}
+	}
+	return nil
 }
 
 func describeType(value interface{}) string {
