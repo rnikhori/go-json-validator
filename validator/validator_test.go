@@ -95,6 +95,41 @@ func TestValidate_StringLength_TooLong(t *testing.T) {
 	}
 }
 
+func rangeSchema() map[string]Rule {
+	min := 0.0
+	max := 120.0
+	return map[string]Rule{
+		"age": {Kind: KindNumber, Required: true, Min: &min, Max: &max},
+	}
+}
+
+func TestValidate_NumericRange_Valid(t *testing.T) {
+	data := decode(t, `{"age": 42}`)
+
+	errs := Validate(data, rangeSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_NumericRange_TooLow(t *testing.T) {
+	data := decode(t, `{"age": -5}`)
+
+	errs := Validate(data, rangeSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_NumericRange_TooHigh(t *testing.T) {
+	data := decode(t, `{"age": 200}`)
+
+	errs := Validate(data, rangeSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
