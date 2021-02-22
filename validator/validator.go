@@ -2,7 +2,10 @@
 // JSON data that has already been unmarshaled into map[string]interface{}.
 package validator
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+)
 
 // Kind identifies the expected Go/JSON type of a field.
 type Kind string
@@ -29,6 +32,10 @@ type Rule struct {
 	// means the bound is not enforced.
 	Min *float64
 	Max *float64
+
+	// Pattern, when non-empty, is a regular expression that string
+	// values must match in order to be valid.
+	Pattern string
 }
 
 // ValidationError describes a single validation failure for a field.
@@ -70,6 +77,9 @@ func Validate(data map[string]interface{}, schema map[string]Rule) []error {
 			errs = append(errs, err)
 		}
 		if err := checkNumericRange(field, value, rule); err != nil {
+			errs = append(errs, err)
+		}
+		if err := checkPattern(field, value, rule); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -151,6 +161,35 @@ func checkNumericRange(field string, value interface{}, rule Rule) error {
 		return &ValidationError{
 			Field:   field,
 			Message: fmt.Sprintf("must be at most %g, got %g", *rule.Max, n),
+		}
+	}
+	return nil
+}
+
+// checkPattern enforces rule.Pattern against string values. It is a no-op
+// for non-string rules or rules without a pattern configured.
+func checkPattern(field string, value interface{}, rule Rule) error {
+	if rule.Kind != KindString || rule.Pattern == "" {
+		return nil
+	}
+
+	s, ok := value.(string)
+	if !ok {
+		return nil
+	}
+
+	re, err := regexp.Compile(rule.Pattern)
+	if err != nil {
+		return &ValidationError{
+			Field:   field,
+			Message: fmt.Sprintf("has an invalid pattern configured: %v", err),
+		}
+	}
+
+	if !re.MatchString(s) {
+		return &ValidationError{
+			Field:   field,
+			Message: fmt.Sprintf("must match pattern %q", rule.Pattern),
 		}
 	}
 	return nil
