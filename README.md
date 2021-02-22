@@ -34,6 +34,19 @@ schema := map[string]validator.Rule{
 }
 ```
 
+## Numeric range rules
+
+Use `Min` and `Max` to constrain numeric fields (inclusive bounds):
+
+```go
+min := 0.0
+max := 120.0
+
+schema := map[string]validator.Rule{
+	"age": {Kind: validator.KindNumber, Required: true, Min: &min, Max: &max},
+}
+```
+
 Run the demo:
 
 ```sh
