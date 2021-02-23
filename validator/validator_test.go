@@ -130,6 +130,42 @@ func TestValidate_NumericRange_TooHigh(t *testing.T) {
 	}
 }
 
+func patternSchema() map[string]Rule {
+	return map[string]Rule{
+		"zip": {Kind: KindString, Required: true, Pattern: `^\d{5}$`},
+	}
+}
+
+func TestValidate_Pattern_Valid(t *testing.T) {
+	data := decode(t, `{"zip": "94107"}`)
+
+	errs := Validate(data, patternSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_Pattern_NoMatch(t *testing.T) {
+	data := decode(t, `{"zip": "abc"}`)
+
+	errs := Validate(data, patternSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_Pattern_InvalidRegex(t *testing.T) {
+	data := decode(t, `{"zip": "94107"}`)
+	schema := map[string]Rule{
+		"zip": {Kind: KindString, Required: true, Pattern: `(unterminated`},
+	}
+
+	errs := Validate(data, schema)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error for invalid pattern, got %d: %v", len(errs), errs)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
