@@ -47,6 +47,18 @@ schema := map[string]validator.Rule{
 }
 ```
 
+## Pattern rule
+
+Use `Pattern` to require a string field to match a regular expression (as understood by Go's `regexp` package):
+
+```go
+schema := map[string]validator.Rule{
+	"zip": {Kind: validator.KindString, Required: true, Pattern: `^\d{5}$`},
+}
+```
+
+An invalid regular expression produces a validation error on the field rather than panicking.
+
 Run the demo:
 
 ```sh
