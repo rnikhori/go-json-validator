@@ -4,6 +4,7 @@ package validator
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 )
 
@@ -36,6 +37,11 @@ type Rule struct {
 	// Pattern, when non-empty, is a regular expression that string
 	// values must match in order to be valid.
 	Pattern string
+
+	// Enum, when non-empty, restricts a value to one of the given
+	// options. Options should use the same Go types that
+	// encoding/json produces (string, float64, bool, etc).
+	Enum []interface{}
 }
 
 // ValidationError describes a single validation failure for a field.
@@ -80,6 +86,9 @@ func Validate(data map[string]interface{}, schema map[string]Rule) []error {
 			errs = append(errs, err)
 		}
 		if err := checkPattern(field, value, rule); err != nil {
+			errs = append(errs, err)
+		}
+		if err := checkEnum(field, value, rule); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -193,6 +202,25 @@ func checkPattern(field string, value interface{}, rule Rule) error {
 		}
 	}
 	return nil
+}
+
+// checkEnum enforces rule.Enum, requiring value to equal one of the
+// configured options. It is a no-op when no options are configured.
+func checkEnum(field string, value interface{}, rule Rule) error {
+	if len(rule.Enum) == 0 {
+		return nil
+	}
+
+	for _, option := range rule.Enum {
+		if reflect.DeepEqual(value, option) {
+			return nil
+		}
+	}
+
+	return &ValidationError{
+		Field:   field,
+		Message: fmt.Sprintf("must be one of %v", rule.Enum),
+	}
 }
 
 func describeType(value interface{}) string {
