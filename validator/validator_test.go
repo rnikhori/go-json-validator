@@ -166,6 +166,46 @@ func TestValidate_Pattern_InvalidRegex(t *testing.T) {
 	}
 }
 
+func enumSchema() map[string]Rule {
+	return map[string]Rule{
+		"status": {Kind: KindString, Required: true, Enum: []interface{}{"active", "inactive", "pending"}},
+		"level":  {Kind: KindNumber, Required: true, Enum: []interface{}{1.0, 2.0, 3.0}},
+	}
+}
+
+func TestValidate_Enum_Valid(t *testing.T) {
+	data := decode(t, `{"status": "active", "level": 2}`)
+
+	errs := Validate(data, enumSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_Enum_InvalidString(t *testing.T) {
+	data := decode(t, `{"status": "archived", "level": 2}`)
+
+	errs := Validate(data, enumSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "status" {
+		t.Fatalf("expected error for field %q, got %q", "status", errs[0].(*ValidationError).Field)
+	}
+}
+
+func TestValidate_Enum_InvalidNumber(t *testing.T) {
+	data := decode(t, `{"status": "active", "level": 9}`)
+
+	errs := Validate(data, enumSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "level" {
+		t.Fatalf("expected error for field %q, got %q", "level", errs[0].(*ValidationError).Field)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
