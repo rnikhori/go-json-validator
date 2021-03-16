@@ -59,6 +59,16 @@ schema := map[string]validator.Rule{
 
 An invalid regular expression produces a validation error on the field rather than panicking.
 
+## Enum rule
+
+Use `Enum` to restrict a value to a fixed set of options:
+
+```go
+schema := map[string]validator.Rule{
+	"status": {Kind: validator.KindString, Required: true, Enum: []interface{}{"active", "inactive", "pending"}},
+}
+```
+
 Run the demo:
 
 ```sh
