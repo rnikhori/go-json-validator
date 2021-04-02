@@ -42,6 +42,10 @@ type Rule struct {
 	// options. Options should use the same Go types that
 	// encoding/json produces (string, float64, bool, etc).
 	Enum []interface{}
+
+	// Properties, when Kind is KindObject, describes a sub-schema that
+	// the field's value (a nested JSON object) must satisfy.
+	Properties map[string]Rule
 }
 
 // ValidationError describes a single validation failure for a field.
@@ -57,43 +61,74 @@ func (e *ValidationError) Error() string {
 // Validate checks data against schema and returns every validation error
 // found. A nil or empty slice is returned when data satisfies schema.
 func Validate(data map[string]interface{}, schema map[string]Rule) []error {
+	return validateFields("", data, schema)
+}
+
+// validateFields validates every field in schema against data, prefixing
+// resulting error field names with prefix (used for nested objects).
+func validateFields(prefix string, data map[string]interface{}, schema map[string]Rule) []error {
 	var errs []error
 
 	for field, rule := range schema {
+		path := joinPath(prefix, field)
+
 		value, present := data[field]
 		if !present {
 			if rule.Required {
 				errs = append(errs, &ValidationError{
-					Field:   field,
+					Field:   path,
 					Message: "is required but missing",
 				})
 			}
 			continue
 		}
 
-		if !matchesKind(value, rule.Kind) {
-			errs = append(errs, &ValidationError{
-				Field:   field,
-				Message: fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value)),
-			})
-			continue
-		}
-
-		if err := checkStringLength(field, value, rule); err != nil {
-			errs = append(errs, err)
-		}
-		if err := checkNumericRange(field, value, rule); err != nil {
-			errs = append(errs, err)
-		}
-		if err := checkPattern(field, value, rule); err != nil {
-			errs = append(errs, err)
-		}
-		if err := checkEnum(field, value, rule); err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, validateValue(path, value, rule)...)
 	}
 
 	return errs
+}
+
+// validateValue checks a single value against rule, returning every
+// violation found at or below path.
+func validateValue(path string, value interface{}, rule Rule) []error {
+	var errs []error
+
+	if !matchesKind(value, rule.Kind) {
+		return append(errs, &ValidationError{
+			Field:   path,
+			Message: fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value)),
+		})
+	}
+
+	if err := checkStringLength(path, value, rule); err != nil {
+		errs = append(errs, err)
+	}
+	if err := checkNumericRange(path, value, rule); err != nil {
+		errs = append(errs, err)
+	}
+	if err := checkPattern(path, value, rule); err != nil {
+		errs = append(errs, err)
+	}
+	if err := checkEnum(path, value, rule); err != nil {
+		errs = append(errs, err)
+	}
+
+	if rule.Kind == KindObject && rule.Properties != nil {
+		obj := value.(map[string]interface{})
+		errs = append(errs, validateFields(path, obj, rule.Properties)...)
+	}
+
+	return errs
+}
+
+// joinPath appends field to prefix using dot notation, omitting the
+// separator when prefix is empty (top-level fields).
+func joinPath(prefix, field string) string {
+	if prefix == "" {
+		return field
+	}
+	return prefix + "." + field
 }
 
 // checkStringLength enforces rule.MinLength and rule.MaxLength against
