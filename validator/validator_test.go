@@ -206,6 +206,65 @@ func TestValidate_Enum_InvalidNumber(t *testing.T) {
 	}
 }
 
+func addressSchema() map[string]Rule {
+	return map[string]Rule{
+		"name": {Kind: KindString, Required: true},
+		"address": {
+			Kind:     KindObject,
+			Required: true,
+			Properties: map[string]Rule{
+				"city": {Kind: KindString, Required: true},
+				"zip":  {Kind: KindString, Required: false},
+			},
+		},
+	}
+}
+
+func TestValidate_NestedObject_Valid(t *testing.T) {
+	data := decode(t, `{"name": "Ada", "address": {"city": "London", "zip": "W1"}}`)
+
+	errs := Validate(data, addressSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_NestedObject_MissingRequiredNestedField(t *testing.T) {
+	data := decode(t, `{"name": "Ada", "address": {"zip": "W1"}}`)
+
+	errs := Validate(data, addressSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "address.city" {
+		t.Fatalf("expected error for field %q, got %q", "address.city", errs[0].(*ValidationError).Field)
+	}
+}
+
+func TestValidate_NestedObject_WrongTypeNestedField(t *testing.T) {
+	data := decode(t, `{"name": "Ada", "address": {"city": 42}}`)
+
+	errs := Validate(data, addressSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "address.city" {
+		t.Fatalf("expected error for field %q, got %q", "address.city", errs[0].(*ValidationError).Field)
+	}
+}
+
+func TestValidate_NestedObject_WrongTopLevelType(t *testing.T) {
+	data := decode(t, `{"name": "Ada", "address": "not an object"}`)
+
+	errs := Validate(data, addressSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "address" {
+		t.Fatalf("expected error for field %q, got %q", "address", errs[0].(*ValidationError).Field)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
