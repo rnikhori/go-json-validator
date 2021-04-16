@@ -69,6 +69,24 @@ schema := map[string]validator.Rule{
 }
 ```
 
+## Nested objects
+
+Give a `KindObject` rule a `Properties` sub-schema to validate nested JSON objects. Errors from nested fields use dotted paths, e.g. `address.city`:
+
+```go
+schema := map[string]validator.Rule{
+	"name": {Kind: validator.KindString, Required: true},
+	"address": {
+		Kind:     validator.KindObject,
+		Required: true,
+		Properties: map[string]validator.Rule{
+			"city": {Kind: validator.KindString, Required: true},
+			"zip":  {Kind: validator.KindString, Required: false},
+		},
+	},
+}
+```
+
 Run the demo:
 
 ```sh
