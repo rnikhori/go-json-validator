@@ -46,6 +46,15 @@ type Rule struct {
 	// Properties, when Kind is KindObject, describes a sub-schema that
 	// the field's value (a nested JSON object) must satisfy.
 	Properties map[string]Rule
+
+	// Items, when Kind is KindArray, describes the rule that every
+	// element of the array must satisfy.
+	Items *Rule
+
+	// MinItems and MaxItems constrain the number of elements in an
+	// array value. A nil pointer means the bound is not enforced.
+	MinItems *int
+	MaxItems *int
 }
 
 // ValidationError describes a single validation failure for a field.
@@ -117,6 +126,38 @@ func validateValue(path string, value interface{}, rule Rule) []error {
 	if rule.Kind == KindObject && rule.Properties != nil {
 		obj := value.(map[string]interface{})
 		errs = append(errs, validateFields(path, obj, rule.Properties)...)
+	}
+
+	if rule.Kind == KindArray {
+		items := value.([]interface{})
+		errs = append(errs, checkArrayBounds(path, items, rule)...)
+		if rule.Items != nil {
+			for i, item := range items {
+				itemPath := fmt.Sprintf("%s[%d]", path, i)
+				errs = append(errs, validateValue(itemPath, item, *rule.Items)...)
+			}
+		}
+	}
+
+	return errs
+}
+
+// checkArrayBounds enforces rule.MinItems and rule.MaxItems against an
+// array value. It is a no-op when neither bound is configured.
+func checkArrayBounds(path string, items []interface{}, rule Rule) []error {
+	var errs []error
+
+	if rule.MinItems != nil && len(items) < *rule.MinItems {
+		errs = append(errs, &ValidationError{
+			Field:   path,
+			Message: fmt.Sprintf("must have at least %d items, got %d", *rule.MinItems, len(items)),
+		})
+	}
+	if rule.MaxItems != nil && len(items) > *rule.MaxItems {
+		errs = append(errs, &ValidationError{
+			Field:   path,
+			Message: fmt.Sprintf("must have at most %d items, got %d", *rule.MaxItems, len(items)),
+		})
 	}
 
 	return errs
