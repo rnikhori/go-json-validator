@@ -265,6 +265,75 @@ func TestValidate_NestedObject_WrongTopLevelType(t *testing.T) {
 	}
 }
 
+func tagsSchema() map[string]Rule {
+	minItems := 1
+	maxItems := 3
+	return map[string]Rule{
+		"tags": {
+			Kind:     KindArray,
+			Required: true,
+			Items:    &Rule{Kind: KindString, MinLength: intPtr(1)},
+			MinItems: &minItems,
+			MaxItems: &maxItems,
+		},
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
+}
+
+func TestValidate_Array_Valid(t *testing.T) {
+	data := decode(t, `{"tags": ["go", "json"]}`)
+
+	errs := Validate(data, tagsSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_Array_WrongElementType(t *testing.T) {
+	data := decode(t, `{"tags": ["go", 42]}`)
+
+	errs := Validate(data, tagsSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "tags[1]" {
+		t.Fatalf("expected error for field %q, got %q", "tags[1]", errs[0].(*ValidationError).Field)
+	}
+}
+
+func TestValidate_Array_TooFewItems(t *testing.T) {
+	data := decode(t, `{"tags": []}`)
+
+	errs := Validate(data, tagsSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_Array_TooManyItems(t *testing.T) {
+	data := decode(t, `{"tags": ["a", "b", "c", "d"]}`)
+
+	errs := Validate(data, tagsSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_Array_ElementConstraintViolation(t *testing.T) {
+	data := decode(t, `{"tags": [""]}`)
+
+	errs := Validate(data, tagsSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "tags[0]" {
+		t.Fatalf("expected error for field %q, got %q", "tags[0]", errs[0].(*ValidationError).Field)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
