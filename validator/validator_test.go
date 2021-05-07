@@ -334,6 +334,43 @@ func TestValidate_Array_ElementConstraintViolation(t *testing.T) {
 	}
 }
 
+func ordersSchema() map[string]Rule {
+	return map[string]Rule{
+		"orders": {
+			Kind:     KindArray,
+			Required: true,
+			Items: &Rule{
+				Kind: KindObject,
+				Properties: map[string]Rule{
+					"id":  {Kind: KindString, Required: true},
+					"qty": {Kind: KindNumber, Required: true},
+				},
+			},
+		},
+	}
+}
+
+func TestValidate_ArrayOfObjects_Valid(t *testing.T) {
+	data := decode(t, `{"orders": [{"id": "o1", "qty": 2}, {"id": "o2", "qty": 1}]}`)
+
+	errs := Validate(data, ordersSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidate_ArrayOfObjects_MissingNestedField(t *testing.T) {
+	data := decode(t, `{"orders": [{"id": "o1", "qty": 2}, {"qty": 1}]}`)
+
+	errs := Validate(data, ordersSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "orders[1].id" {
+		t.Fatalf("expected error for field %q, got %q", "orders[1].id", errs[0].(*ValidationError).Field)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
