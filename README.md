@@ -87,6 +87,35 @@ schema := map[string]validator.Rule{
 }
 ```
 
+## Arrays
+
+Give a `KindArray` rule an `Items` rule to validate every element, and optional `MinItems`/`MaxItems` to constrain the element count. `Items` can itself be a nested object rule, producing paths like `orders[1].id`:
+
+```go
+minItems := 1
+maxItems := 10
+
+schema := map[string]validator.Rule{
+	"tags": {
+		Kind:     validator.KindArray,
+		Required: true,
+		Items:    &validator.Rule{Kind: validator.KindString, MinLength: intPtr(1)},
+		MinItems: &minItems,
+		MaxItems: &maxItems,
+	},
+	"orders": {
+		Kind: validator.KindArray,
+		Items: &validator.Rule{
+			Kind: validator.KindObject,
+			Properties: map[string]validator.Rule{
+				"id":  {Kind: validator.KindString, Required: true},
+				"qty": {Kind: validator.KindNumber, Required: true},
+			},
+		},
+	},
+}
+```
+
 Run the demo:
 
 ```sh
