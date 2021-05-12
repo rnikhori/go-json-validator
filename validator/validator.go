@@ -110,17 +110,10 @@ func validateValue(path string, value interface{}, rule Rule) []error {
 		})
 	}
 
-	if err := checkStringLength(path, value, rule); err != nil {
-		errs = append(errs, err)
-	}
-	if err := checkNumericRange(path, value, rule); err != nil {
-		errs = append(errs, err)
-	}
-	if err := checkPattern(path, value, rule); err != nil {
-		errs = append(errs, err)
-	}
-	if err := checkEnum(path, value, rule); err != nil {
-		errs = append(errs, err)
+	for _, check := range valueCheckers {
+		if err := check(path, value, rule); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if rule.Kind == KindObject && rule.Properties != nil {
@@ -170,6 +163,16 @@ func joinPath(prefix, field string) string {
 		return field
 	}
 	return prefix + "." + field
+}
+
+// valueCheckers lists the scalar constraint checks applied to a value
+// after its Kind has been confirmed. Each checker is a no-op for rules it
+// does not apply to.
+var valueCheckers = []func(string, interface{}, Rule) error{
+	checkStringLength,
+	checkNumericRange,
+	checkPattern,
+	checkEnum,
 }
 
 // checkStringLength enforces rule.MinLength and rule.MaxLength against
