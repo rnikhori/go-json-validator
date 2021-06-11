@@ -371,6 +371,37 @@ func TestValidate_ArrayOfObjects_MissingNestedField(t *testing.T) {
 	}
 }
 
+func TestValidate_CustomMessage_Override(t *testing.T) {
+	data := decode(t, `{"age": "not a number"}`)
+	schema := map[string]Rule{
+		"age": {Kind: KindNumber, Required: true, Message: "age must be a whole number"},
+	}
+
+	errs := Validate(data, schema)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	ve := errs[0].(*ValidationError)
+	if ve.Message != "age must be a whole number" {
+		t.Fatalf("expected overridden message, got %q", ve.Message)
+	}
+}
+
+func TestValidate_CustomMessage_AppliesToRequiredCheck(t *testing.T) {
+	data := decode(t, `{}`)
+	schema := map[string]Rule{
+		"age": {Kind: KindNumber, Required: true, Message: "age is mandatory"},
+	}
+
+	errs := Validate(data, schema)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Message != "age is mandatory" {
+		t.Fatalf("expected overridden message, got %q", errs[0].(*ValidationError).Message)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
