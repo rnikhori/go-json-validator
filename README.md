@@ -116,6 +116,16 @@ schema := map[string]validator.Rule{
 }
 ```
 
+## Custom error messages
+
+Set `Message` on a `Rule` to replace every default error text generated for that field (required, type, and every constraint) with your own wording:
+
+```go
+schema := map[string]validator.Rule{
+	"age": {Kind: validator.KindNumber, Required: true, Message: "age must be a whole number"},
+}
+```
+
 Run the demo:
 
 ```sh
