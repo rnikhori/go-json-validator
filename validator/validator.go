@@ -59,7 +59,26 @@ type Rule struct {
 	// Message, when non-empty, overrides every default error message
 	// produced for this field, regardless of which check failed.
 	Message string
+
+	// Messages overrides the error message for a specific failing
+	// check on this field, taking precedence over Message. Valid keys
+	// are: required, type, minLength, maxLength, min, max, pattern,
+	// enum, minItems, maxItems.
+	Messages map[string]string
 }
+
+const (
+	msgKeyRequired = "required"
+	msgKeyType     = "type"
+	msgKeyMinLen   = "minLength"
+	msgKeyMaxLen   = "maxLength"
+	msgKeyMin      = "min"
+	msgKeyMax      = "max"
+	msgKeyPattern  = "pattern"
+	msgKeyEnum     = "enum"
+	msgKeyMinItems = "minItems"
+	msgKeyMaxItems = "maxItems"
+)
 
 // ValidationError describes a single validation failure for a field.
 type ValidationError struct {
@@ -71,14 +90,16 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("field %q: %s", e.Field, e.Message)
 }
 
-// fieldError builds a ValidationError for path, using rule.Message in
-// place of def when the rule configures a custom override.
-func fieldError(path string, rule Rule, def string) *ValidationError {
-	msg := def
-	if rule.Message != "" {
-		msg = rule.Message
+// fieldError builds a ValidationError for path. The message is chosen in
+// order of precedence: rule.Messages[key], then rule.Message, then def.
+func fieldError(path string, rule Rule, key, def string) *ValidationError {
+	if msg, ok := rule.Messages[key]; ok && msg != "" {
+		return &ValidationError{Field: path, Message: msg}
 	}
-	return &ValidationError{Field: path, Message: msg}
+	if rule.Message != "" {
+		return &ValidationError{Field: path, Message: rule.Message}
+	}
+	return &ValidationError{Field: path, Message: def}
 }
 
 // Validate checks data against schema and returns every validation error
@@ -98,7 +119,7 @@ func validateFields(prefix string, data map[string]interface{}, schema map[strin
 		value, present := data[field]
 		if !present {
 			if rule.Required {
-				errs = append(errs, fieldError(path, rule, "is required but missing"))
+				errs = append(errs, fieldError(path, rule, msgKeyRequired, "is required but missing"))
 			}
 			continue
 		}
@@ -115,7 +136,7 @@ func validateValue(path string, value interface{}, rule Rule) []error {
 	var errs []error
 
 	if !matchesKind(value, rule.Kind) {
-		return append(errs, fieldError(path, rule, fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value))))
+		return append(errs, fieldError(path, rule, msgKeyType, fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value))))
 	}
 
 	for _, check := range valueCheckers {
@@ -149,10 +170,10 @@ func checkArrayBounds(path string, items []interface{}, rule Rule) []error {
 	var errs []error
 
 	if rule.MinItems != nil && len(items) < *rule.MinItems {
-		errs = append(errs, fieldError(path, rule, fmt.Sprintf("must have at least %d items, got %d", *rule.MinItems, len(items))))
+		errs = append(errs, fieldError(path, rule, msgKeyMinItems, fmt.Sprintf("must have at least %d items, got %d", *rule.MinItems, len(items))))
 	}
 	if rule.MaxItems != nil && len(items) > *rule.MaxItems {
-		errs = append(errs, fieldError(path, rule, fmt.Sprintf("must have at most %d items, got %d", *rule.MaxItems, len(items))))
+		errs = append(errs, fieldError(path, rule, msgKeyMaxItems, fmt.Sprintf("must have at most %d items, got %d", *rule.MaxItems, len(items))))
 	}
 
 	return errs
@@ -191,10 +212,10 @@ func checkStringLength(field string, value interface{}, rule Rule) error {
 	length := len([]rune(s))
 
 	if rule.MinLength != nil && length < *rule.MinLength {
-		return fieldError(field, rule, fmt.Sprintf("must be at least %d characters long, got %d", *rule.MinLength, length))
+		return fieldError(field, rule, msgKeyMinLen, fmt.Sprintf("must be at least %d characters long, got %d", *rule.MinLength, length))
 	}
 	if rule.MaxLength != nil && length > *rule.MaxLength {
-		return fieldError(field, rule, fmt.Sprintf("must be at most %d characters long, got %d", *rule.MaxLength, length))
+		return fieldError(field, rule, msgKeyMaxLen, fmt.Sprintf("must be at most %d characters long, got %d", *rule.MaxLength, length))
 	}
 	return nil
 }
@@ -236,10 +257,10 @@ func checkNumericRange(field string, value interface{}, rule Rule) error {
 	}
 
 	if rule.Min != nil && n < *rule.Min {
-		return fieldError(field, rule, fmt.Sprintf("must be at least %g, got %g", *rule.Min, n))
+		return fieldError(field, rule, msgKeyMin, fmt.Sprintf("must be at least %g, got %g", *rule.Min, n))
 	}
 	if rule.Max != nil && n > *rule.Max {
-		return fieldError(field, rule, fmt.Sprintf("must be at most %g, got %g", *rule.Max, n))
+		return fieldError(field, rule, msgKeyMax, fmt.Sprintf("must be at most %g, got %g", *rule.Max, n))
 	}
 	return nil
 }
@@ -258,11 +279,11 @@ func checkPattern(field string, value interface{}, rule Rule) error {
 
 	re, err := regexp.Compile(rule.Pattern)
 	if err != nil {
-		return fieldError(field, rule, fmt.Sprintf("has an invalid pattern configured: %v", err))
+		return fieldError(field, rule, msgKeyPattern, fmt.Sprintf("has an invalid pattern configured: %v", err))
 	}
 
 	if !re.MatchString(s) {
-		return fieldError(field, rule, fmt.Sprintf("must match pattern %q", rule.Pattern))
+		return fieldError(field, rule, msgKeyPattern, fmt.Sprintf("must match pattern %q", rule.Pattern))
 	}
 	return nil
 }
@@ -280,7 +301,7 @@ func checkEnum(field string, value interface{}, rule Rule) error {
 		}
 	}
 
-	return fieldError(field, rule, fmt.Sprintf("must be one of %v", rule.Enum))
+	return fieldError(field, rule, msgKeyEnum, fmt.Sprintf("must be one of %v", rule.Enum))
 }
 
 func describeType(value interface{}) string {
