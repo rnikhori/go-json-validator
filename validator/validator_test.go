@@ -402,6 +402,37 @@ func TestValidate_CustomMessage_AppliesToRequiredCheck(t *testing.T) {
 	}
 }
 
+func TestValidate_Messages_PerCheckOverride(t *testing.T) {
+	min := 0.0
+	schema := map[string]Rule{
+		"age": {
+			Kind:     KindNumber,
+			Required: true,
+			Min:      &min,
+			Message:  "generic age problem",
+			Messages: map[string]string{
+				msgKeyMin: "age cannot be negative",
+			},
+		},
+	}
+
+	errs := Validate(decode(t, `{"age": -1}`), schema)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Message != "age cannot be negative" {
+		t.Fatalf("expected per-check message, got %q", errs[0].(*ValidationError).Message)
+	}
+
+	errs = Validate(decode(t, `{}`), schema)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Message != "generic age problem" {
+		t.Fatalf("expected fallback to Message for unconfigured check, got %q", errs[0].(*ValidationError).Message)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
