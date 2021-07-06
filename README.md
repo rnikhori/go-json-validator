@@ -126,6 +126,22 @@ schema := map[string]validator.Rule{
 }
 ```
 
+Use `Messages` instead to override the message for one specific check, falling back to `Message` and then the default for any check not listed. Valid keys are `required`, `type`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `enum`, `minItems`, and `maxItems`:
+
+```go
+schema := map[string]validator.Rule{
+	"age": {
+		Kind:     validator.KindNumber,
+		Required: true,
+		Min:      &min,
+		Messages: map[string]string{
+			"min":      "age cannot be negative",
+			"required": "age must be provided",
+		},
+	},
+}
+```
+
 Run the demo:
 
 ```sh
