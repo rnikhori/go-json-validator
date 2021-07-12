@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 )
 
 // Kind identifies the expected Go/JSON type of a field.
@@ -110,10 +111,13 @@ func Validate(data map[string]interface{}, schema map[string]Rule) []error {
 
 // validateFields validates every field in schema against data, prefixing
 // resulting error field names with prefix (used for nested objects).
+// Fields are visited in sorted order so the returned errors (and the
+// error ValidateFirst picks) are deterministic.
 func validateFields(prefix string, data map[string]interface{}, schema map[string]Rule) []error {
 	var errs []error
 
-	for field, rule := range schema {
+	for _, field := range sortedKeys(schema) {
+		rule := schema[field]
 		path := joinPath(prefix, field)
 
 		value, present := data[field]
@@ -177,6 +181,16 @@ func checkArrayBounds(path string, items []interface{}, rule Rule) []error {
 	}
 
 	return errs
+}
+
+// sortedKeys returns the keys of schema in ascending order.
+func sortedKeys(schema map[string]Rule) []string {
+	keys := make([]string, 0, len(schema))
+	for field := range schema {
+		keys = append(keys, field)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // joinPath appends field to prefix using dot notation, omitting the
