@@ -433,6 +433,28 @@ func TestValidate_Messages_PerCheckOverride(t *testing.T) {
 	}
 }
 
+func TestValidate_DeterministicErrorOrder(t *testing.T) {
+	data := decode(t, `{}`)
+	schema := map[string]Rule{
+		"zeta":  {Kind: KindString, Required: true},
+		"alpha": {Kind: KindString, Required: true},
+		"mu":    {Kind: KindString, Required: true},
+	}
+
+	want := []string{"alpha", "mu", "zeta"}
+	for i := 0; i < 20; i++ {
+		errs := Validate(data, schema)
+		if len(errs) != len(want) {
+			t.Fatalf("expected %d errors, got %d: %v", len(want), len(errs), errs)
+		}
+		for i, err := range errs {
+			if err.(*ValidationError).Field != want[i] {
+				t.Fatalf("run %d: expected order %v, got field %q at index %d", i, want, err.(*ValidationError).Field, i)
+			}
+		}
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
