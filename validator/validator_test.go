@@ -455,6 +455,47 @@ func TestValidate_DeterministicErrorOrder(t *testing.T) {
 	}
 }
 
+func TestValidateFirst_ValidPayload(t *testing.T) {
+	data := decode(t, `{"name": "Ada Lovelace", "age": 36}`)
+
+	if err := ValidateFirst(data, userSchema()); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestValidateFirst_ReturnsAlphabeticallyFirstError(t *testing.T) {
+	data := decode(t, `{}`)
+	schema := map[string]Rule{
+		"zeta":  {Kind: KindString, Required: true},
+		"alpha": {Kind: KindString, Required: true},
+	}
+
+	err := ValidateFirst(data, schema)
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	ve, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("expected *ValidationError, got %T", err)
+	}
+	if ve.Field != "alpha" {
+		t.Fatalf("expected first error for field %q, got %q", "alpha", ve.Field)
+	}
+}
+
+func TestValidateFirst_StopsBeforeNestedValidation(t *testing.T) {
+	data := decode(t, `{"address": "not an object"}`)
+
+	err := ValidateFirst(data, addressSchema())
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	ve := err.(*ValidationError)
+	if ve.Field != "address" {
+		t.Fatalf("expected error for field %q, got %q", "address", ve.Field)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
