@@ -106,81 +106,125 @@ func fieldError(path string, rule Rule, key, def string) *ValidationError {
 // Validate checks data against schema and returns every validation error
 // found. A nil or empty slice is returned when data satisfies schema.
 func Validate(data map[string]interface{}, schema map[string]Rule) []error {
-	return validateFields("", data, schema)
+	c := newCollector(false)
+	validateFields(c, "", data, schema)
+	return c.errs
+}
+
+// ValidateFirst checks data against schema and returns only the first
+// validation error encountered, or nil when data satisfies schema.
+// Validation stops as soon as one error is found, which can be cheaper
+// than Validate for large or deeply nested schemas when callers only need
+// to know whether data is valid, or want a single actionable error. Fields
+// are checked in sorted order, so the result is deterministic.
+func ValidateFirst(data map[string]interface{}, schema map[string]Rule) error {
+	c := newCollector(true)
+	validateFields(c, "", data, schema)
+	if len(c.errs) > 0 {
+		return c.errs[0]
+	}
+	return nil
+}
+
+// collector accumulates validation errors and, when stopFirst is set,
+// signals the recursive walk to stop as soon as one error is recorded.
+type collector struct {
+	errs      []error
+	stopFirst bool
+}
+
+func newCollector(stopFirst bool) *collector {
+	return &collector{stopFirst: stopFirst}
+}
+
+func (c *collector) add(err error) {
+	c.errs = append(c.errs, err)
+}
+
+// done reports whether the walk should stop early.
+func (c *collector) done() bool {
+	return c.stopFirst && len(c.errs) > 0
 }
 
 // validateFields validates every field in schema against data, prefixing
 // resulting error field names with prefix (used for nested objects).
 // Fields are visited in sorted order so the returned errors (and the
 // error ValidateFirst picks) are deterministic.
-func validateFields(prefix string, data map[string]interface{}, schema map[string]Rule) []error {
-	var errs []error
-
+func validateFields(c *collector, prefix string, data map[string]interface{}, schema map[string]Rule) {
 	for _, field := range sortedKeys(schema) {
+		if c.done() {
+			return
+		}
+
 		rule := schema[field]
 		path := joinPath(prefix, field)
 
 		value, present := data[field]
 		if !present {
 			if rule.Required {
-				errs = append(errs, fieldError(path, rule, msgKeyRequired, "is required but missing"))
+				c.add(fieldError(path, rule, msgKeyRequired, "is required but missing"))
 			}
 			continue
 		}
 
-		errs = append(errs, validateValue(path, value, rule)...)
+		validateValue(c, path, value, rule)
 	}
-
-	return errs
 }
 
-// validateValue checks a single value against rule, returning every
-// violation found at or below path.
-func validateValue(path string, value interface{}, rule Rule) []error {
-	var errs []error
-
+// validateValue checks a single value against rule, recording every
+// violation found at or below path into c.
+func validateValue(c *collector, path string, value interface{}, rule Rule) {
 	if !matchesKind(value, rule.Kind) {
-		return append(errs, fieldError(path, rule, msgKeyType, fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value))))
+		c.add(fieldError(path, rule, msgKeyType, fmt.Sprintf("expected type %s, got %s", rule.Kind, describeType(value))))
+		return
 	}
 
 	for _, check := range valueCheckers {
-		if err := check(path, value, rule); err != nil {
-			errs = append(errs, err)
+		if c.done() {
+			return
 		}
+		if err := check(path, value, rule); err != nil {
+			c.add(err)
+		}
+	}
+
+	if c.done() {
+		return
 	}
 
 	if rule.Kind == KindObject && rule.Properties != nil {
 		obj := value.(map[string]interface{})
-		errs = append(errs, validateFields(path, obj, rule.Properties)...)
+		validateFields(c, path, obj, rule.Properties)
 	}
 
 	if rule.Kind == KindArray {
 		items := value.([]interface{})
-		errs = append(errs, checkArrayBounds(path, items, rule)...)
+		checkArrayBounds(c, path, items, rule)
 		if rule.Items != nil {
 			for i, item := range items {
+				if c.done() {
+					return
+				}
 				itemPath := fmt.Sprintf("%s[%d]", path, i)
-				errs = append(errs, validateValue(itemPath, item, *rule.Items)...)
+				validateValue(c, itemPath, item, *rule.Items)
 			}
 		}
 	}
-
-	return errs
 }
 
 // checkArrayBounds enforces rule.MinItems and rule.MaxItems against an
-// array value. It is a no-op when neither bound is configured.
-func checkArrayBounds(path string, items []interface{}, rule Rule) []error {
-	var errs []error
-
+// array value, recording any violation into c. It is a no-op when neither
+// bound is configured.
+func checkArrayBounds(c *collector, path string, items []interface{}, rule Rule) {
 	if rule.MinItems != nil && len(items) < *rule.MinItems {
-		errs = append(errs, fieldError(path, rule, msgKeyMinItems, fmt.Sprintf("must have at least %d items, got %d", *rule.MinItems, len(items))))
+		c.add(fieldError(path, rule, msgKeyMinItems, fmt.Sprintf("must have at least %d items, got %d", *rule.MinItems, len(items))))
+	}
+	if c.done() {
+		return
 	}
 	if rule.MaxItems != nil && len(items) > *rule.MaxItems {
-		errs = append(errs, fieldError(path, rule, msgKeyMaxItems, fmt.Sprintf("must have at most %d items, got %d", *rule.MaxItems, len(items))))
+		c.add(fieldError(path, rule, msgKeyMaxItems, fmt.Sprintf("must have at most %d items, got %d", *rule.MaxItems, len(items))))
 	}
-
-	return errs
 }
 
 // sortedKeys returns the keys of schema in ascending order.
