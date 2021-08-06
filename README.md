@@ -142,6 +142,18 @@ schema := map[string]validator.Rule{
 }
 ```
 
+## Stopping at the first error
+
+`Validate` always collects every violation. When you only need to know whether data is valid, or want a single actionable error, use `ValidateFirst` instead — it stops as soon as one violation is found and returns it directly (or `nil` when data is valid):
+
+```go
+if err := validator.ValidateFirst(data, schema); err != nil {
+	fmt.Println(err)
+}
+```
+
+Fields are always checked in sorted order, so both functions produce deterministic results.
+
 Run the demo:
 
 ```sh
