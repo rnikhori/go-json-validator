@@ -3,6 +3,7 @@
 package validator
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -124,6 +125,19 @@ func ValidateFirst(data map[string]interface{}, schema map[string]Rule) error {
 		return c.errs[0]
 	}
 	return nil
+}
+
+// ValidateJSON unmarshals raw as a JSON object and validates it against
+// schema in one call. JSON syntax errors (malformed input, or input that
+// is not a JSON object) are returned as the second value and are always
+// distinguishable from validation errors: when it is non-nil, the first
+// return value is nil and no validation was attempted.
+func ValidateJSON(raw []byte, schema map[string]Rule) ([]error, error) {
+	var data map[string]interface{}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil, fmt.Errorf("go-json-validator: invalid JSON: %w", err)
+	}
+	return Validate(data, schema), nil
 }
 
 // collector accumulates validation errors and, when stopFirst is set,
