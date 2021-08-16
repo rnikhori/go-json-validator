@@ -140,6 +140,12 @@ func ValidateJSON(raw []byte, schema map[string]Rule) ([]error, error) {
 	return Validate(data, schema), nil
 }
 
+// ValidateJSONString is a convenience wrapper around ValidateJSON for
+// callers holding the JSON payload as a string rather than a []byte.
+func ValidateJSONString(raw string, schema map[string]Rule) ([]error, error) {
+	return ValidateJSON([]byte(raw), schema)
+}
+
 // collector accumulates validation errors and, when stopFirst is set,
 // signals the recursive walk to stop as soon as one error is recorded.
 type collector struct {
