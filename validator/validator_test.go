@@ -496,6 +496,43 @@ func TestValidateFirst_StopsBeforeNestedValidation(t *testing.T) {
 	}
 }
 
+func TestValidateJSON_ValidPayload(t *testing.T) {
+	errs, err := ValidateJSON([]byte(`{"name": "Ada Lovelace", "age": 36}`), userSchema())
+	if err != nil {
+		t.Fatalf("expected no JSON error, got %v", err)
+	}
+	if len(errs) != 0 {
+		t.Fatalf("expected no validation errors, got %v", errs)
+	}
+}
+
+func TestValidateJSON_ValidationErrors(t *testing.T) {
+	errs, err := ValidateJSON([]byte(`{"age": "not a number"}`), userSchema())
+	if err != nil {
+		t.Fatalf("expected no JSON error, got %v", err)
+	}
+	if len(errs) != 2 {
+		t.Fatalf("expected 2 validation errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidateJSON_SyntaxError(t *testing.T) {
+	errs, err := ValidateJSON([]byte(`{"name": "Ada",`), userSchema())
+	if err == nil {
+		t.Fatal("expected a JSON syntax error, got nil")
+	}
+	if errs != nil {
+		t.Fatalf("expected no validation errors alongside a syntax error, got %v", errs)
+	}
+}
+
+func TestValidateJSON_NonObjectPayload(t *testing.T) {
+	_, err := ValidateJSON([]byte(`[1, 2, 3]`), userSchema())
+	if err == nil {
+		t.Fatal("expected an error for a non-object JSON payload, got nil")
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
