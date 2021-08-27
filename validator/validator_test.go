@@ -533,6 +533,23 @@ func TestValidateJSON_NonObjectPayload(t *testing.T) {
 	}
 }
 
+func TestValidateJSONString_ValidPayload(t *testing.T) {
+	errs, err := ValidateJSONString(`{"name": "Ada Lovelace", "age": 36}`, userSchema())
+	if err != nil {
+		t.Fatalf("expected no JSON error, got %v", err)
+	}
+	if len(errs) != 0 {
+		t.Fatalf("expected no validation errors, got %v", errs)
+	}
+}
+
+func TestValidateJSONString_SyntaxError(t *testing.T) {
+	_, err := ValidateJSONString(`not json at all`, userSchema())
+	if err == nil {
+		t.Fatal("expected a JSON syntax error, got nil")
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
