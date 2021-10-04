@@ -154,6 +154,25 @@ if err := validator.ValidateFirst(data, schema); err != nil {
 
 Fields are always checked in sorted order, so both functions produce deterministic results.
 
+## Validating JSON directly
+
+`ValidateJSON` and `ValidateJSONString` unmarshal and validate in one call, so you don't need a separate `json.Unmarshal` step. A JSON syntax error (or a payload that isn't a JSON object) is returned as a distinct second value, never mixed in with validation errors:
+
+```go
+errs, err := validator.ValidateJSON([]byte(`{"name": "Ada", "age": 36}`), schema)
+if err != nil {
+	// malformed JSON, not a validation failure
+	fmt.Println("invalid JSON:", err)
+} else if len(errs) > 0 {
+	for _, e := range errs {
+		fmt.Println(e)
+	}
+}
+
+// Or, from a string:
+errs, err = validator.ValidateJSONString(`{"name": "Ada", "age": 36}`, schema)
+```
+
 Run the demo:
 
 ```sh
