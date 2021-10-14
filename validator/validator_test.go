@@ -550,6 +550,76 @@ func TestValidateJSONString_SyntaxError(t *testing.T) {
 	}
 }
 
+func benchmarkSchema() map[string]Rule {
+	minLen := 1
+	maxLen := 64
+	minAge := 0.0
+	maxAge := 150.0
+	minItems := 0
+	maxItems := 20
+
+	return map[string]Rule{
+		"name":  {Kind: KindString, Required: true, MinLength: &minLen, MaxLength: &maxLen},
+		"email": {Kind: KindString, Required: true, Pattern: `^[^@]+@[^@]+\.[^@]+$`},
+		"age":   {Kind: KindNumber, Required: true, Min: &minAge, Max: &maxAge},
+		"status": {
+			Kind:     KindString,
+			Required: true,
+			Enum:     []interface{}{"active", "inactive", "pending"},
+		},
+		"address": {
+			Kind:     KindObject,
+			Required: true,
+			Properties: map[string]Rule{
+				"city":    {Kind: KindString, Required: true},
+				"zip":     {Kind: KindString, Required: true, Pattern: `^\d{5}$`},
+				"country": {Kind: KindString, Required: true},
+			},
+		},
+		"orders": {
+			Kind:     KindArray,
+			Required: true,
+			MinItems: &minItems,
+			MaxItems: &maxItems,
+			Items: &Rule{
+				Kind: KindObject,
+				Properties: map[string]Rule{
+					"id":  {Kind: KindString, Required: true},
+					"qty": {Kind: KindNumber, Required: true, Min: &minAge},
+				},
+			},
+		},
+	}
+}
+
+func benchmarkPayload() string {
+	return `{
+		"name": "Ada Lovelace",
+		"email": "ada@example.com",
+		"age": 36,
+		"status": "active",
+		"address": {"city": "London", "zip": "12345", "country": "UK"},
+		"orders": [
+			{"id": "o1", "qty": 2},
+			{"id": "o2", "qty": 5},
+			{"id": "o3", "qty": 1}
+		]
+	}`
+}
+
+func BenchmarkValidate_NestedPayload(b *testing.B) {
+	schema := benchmarkSchema()
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(benchmarkPayload()), &data); err != nil {
+		b.Fatalf("failed to unmarshal benchmark payload: %v", err)
+	}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		Validate(data, schema)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
