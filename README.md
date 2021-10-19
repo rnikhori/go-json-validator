@@ -184,3 +184,11 @@ go run .
 ```sh
 go test ./...
 ```
+
+## Benchmarks
+
+A benchmark validates a moderately nested payload (an object with a nested address and an array of nested order objects) to track the cost of recursive validation:
+
+```sh
+go test -bench . -benchmem ./validator/
+```
