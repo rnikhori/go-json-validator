@@ -23,6 +23,10 @@ const (
 
 // Rule describes the validation constraints for a single field.
 type Rule struct {
+	// Kind is the expected JSON type. Required marks a field as
+	// mandatory. A JSON null value is treated the same as an absent
+	// field: it triggers the required-field error when Required is
+	// true, and is otherwise skipped without further checks.
 	Kind     Kind
 	Required bool
 
@@ -180,7 +184,7 @@ func validateFields(c *collector, prefix string, data map[string]interface{}, sc
 		path := joinPath(prefix, field)
 
 		value, present := data[field]
-		if !present {
+		if !present || value == nil {
 			if rule.Required {
 				c.add(fieldError(path, rule, msgKeyRequired, "is required but missing"))
 			}
