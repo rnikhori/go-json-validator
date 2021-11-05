@@ -620,6 +620,31 @@ func BenchmarkValidate_NestedPayload(b *testing.B) {
 	}
 }
 
+func TestValidate_Null_RequiredFieldReportsRequiredMessage(t *testing.T) {
+	data := decode(t, `{"name": null, "age": 36}`)
+
+	errs := Validate(data, userSchema())
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	ve := errs[0].(*ValidationError)
+	if ve.Field != "name" {
+		t.Fatalf("expected error for field %q, got %q", "name", ve.Field)
+	}
+	if ve.Message != "is required but missing" {
+		t.Fatalf("expected required-field message, got %q", ve.Message)
+	}
+}
+
+func TestValidate_Null_OptionalFieldIsSkipped(t *testing.T) {
+	data := decode(t, `{"name": "Ada", "age": 36, "email": null}`)
+
+	errs := Validate(data, userSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors for null optional field, got %v", errs)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
