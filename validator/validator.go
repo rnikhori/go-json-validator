@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 // Kind identifies the expected Go/JSON type of a field.
@@ -142,6 +143,21 @@ func ValidateJSON(raw []byte, schema map[string]Rule) ([]error, error) {
 		return nil, fmt.Errorf("go-json-validator: invalid JSON: %w", err)
 	}
 	return Validate(data, schema), nil
+}
+
+// FormatErrors joins a slice of validation errors (as returned by Validate
+// or ValidateJSON) into a single newline-separated human-readable string.
+// It returns an empty string for an empty or nil slice.
+func FormatErrors(errs []error) string {
+	if len(errs) == 0 {
+		return ""
+	}
+
+	parts := make([]string, len(errs))
+	for i, err := range errs {
+		parts[i] = err.Error()
+	}
+	return strings.Join(parts, "\n")
 }
 
 // ValidateJSONString is a convenience wrapper around ValidateJSON for
