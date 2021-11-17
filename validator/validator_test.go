@@ -645,6 +645,30 @@ func TestValidate_Null_OptionalFieldIsSkipped(t *testing.T) {
 	}
 }
 
+func TestFormatErrors_Empty(t *testing.T) {
+	if got := FormatErrors(nil); got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+	if got := FormatErrors([]error{}); got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+}
+
+func TestFormatErrors_JoinsMessages(t *testing.T) {
+	data := decode(t, `{}`)
+	schema := map[string]Rule{
+		"alpha": {Kind: KindString, Required: true},
+		"beta":  {Kind: KindString, Required: true},
+	}
+
+	errs := Validate(data, schema)
+	got := FormatErrors(errs)
+	want := `field "alpha": is required but missing` + "\n" + `field "beta": is required but missing`
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
