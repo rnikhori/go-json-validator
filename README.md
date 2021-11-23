@@ -173,6 +173,16 @@ if err != nil {
 errs, err = validator.ValidateJSONString(`{"name": "Ada", "age": 36}`, schema)
 ```
 
+## Formatting errors
+
+`FormatErrors` joins a slice of validation errors into a single newline-separated string, handy for logging or displaying all failures at once:
+
+```go
+if errs := validator.Validate(data, schema); len(errs) > 0 {
+	fmt.Println(validator.FormatErrors(errs))
+}
+```
+
 Run the demo:
 
 ```sh
