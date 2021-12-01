@@ -49,6 +49,32 @@ func orderSchema() map[string]validator.Rule {
 	}
 }
 
+func registrationSchema() map[string]validator.Rule {
+	minUsername := 3
+	maxUsername := 20
+	minAge := 13.0
+
+	return map[string]validator.Rule{
+		"username": {
+			Kind:      validator.KindString,
+			Required:  true,
+			MinLength: &minUsername,
+			MaxLength: &maxUsername,
+		},
+		"age": {
+			Kind:     validator.KindNumber,
+			Required: true,
+			Min:      &minAge,
+			Message:  "you must be at least 13 years old to register",
+		},
+		"plan": {
+			Kind:     validator.KindString,
+			Required: true,
+			Enum:     []interface{}{"free", "pro", "enterprise"},
+		},
+	}
+}
+
 type demo struct {
 	label  string
 	schema map[string]validator.Rule
@@ -84,6 +110,16 @@ func demos() []demo {
 				"customer": {"name": "Grace Hopper", "address": {"city": "Arlington", "zip": "abc"}},
 				"items": [{"sku": "sku-9"}]
 			}`,
+		},
+		{
+			"valid registration",
+			registrationSchema(),
+			`{"username": "ada", "age": 36, "plan": "pro"}`,
+		},
+		{
+			"invalid registration: short username, underage, unknown plan",
+			registrationSchema(),
+			`{"username": "ab", "age": 10, "plan": "ultimate"}`,
 		},
 	}
 }
