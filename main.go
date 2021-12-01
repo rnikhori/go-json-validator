@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/rnikhori/go-json-validator/validator"
@@ -141,4 +142,24 @@ func main() {
 		}
 		fmt.Println()
 	}
+
+	fmt.Println("--- ValidateFirst: stop at the first error ---")
+	invalidRegistration := mustDecode(`{"username": "ab", "age": 10, "plan": "ultimate"}`)
+	if err := validator.ValidateFirst(invalidRegistration, registrationSchema()); err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println()
+
+	fmt.Println("--- ValidateJSONString: syntax error surfaced separately ---")
+	if _, err := validator.ValidateJSONString(`{"username": "ada",`, registrationSchema()); err != nil {
+		fmt.Println("invalid JSON:", err)
+	}
+}
+
+func mustDecode(raw string) map[string]interface{} {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		panic(err)
+	}
+	return data
 }
