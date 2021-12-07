@@ -14,6 +14,8 @@ import (
 // Kind identifies the expected Go/JSON type of a field.
 type Kind string
 
+// The supported Kind values, corresponding to the Go types produced by
+// encoding/json when decoding into interface{}.
 const (
 	KindString Kind = "string"
 	KindNumber Kind = "number"
@@ -24,11 +26,13 @@ const (
 
 // Rule describes the validation constraints for a single field.
 type Rule struct {
-	// Kind is the expected JSON type. Required marks a field as
-	// mandatory. A JSON null value is treated the same as an absent
-	// field: it triggers the required-field error when Required is
-	// true, and is otherwise skipped without further checks.
-	Kind     Kind
+	// Kind is the expected JSON type for the field's value.
+	Kind Kind
+
+	// Required marks a field as mandatory. A JSON null value is
+	// treated the same as an absent field: it triggers the
+	// required-field error when Required is true, and is otherwise
+	// skipped without further checks.
 	Required bool
 
 	// MinLength and MaxLength constrain the length (in runes) of string
@@ -89,10 +93,15 @@ const (
 
 // ValidationError describes a single validation failure for a field.
 type ValidationError struct {
-	Field   string
+	// Field is the dotted/bracketed path to the offending value, e.g.
+	// "address.zip" or "orders[2].qty".
+	Field string
+	// Message is a human-readable description of why Field is invalid.
 	Message string
 }
 
+// Error implements the error interface, formatting the failure as
+// `field "<Field>": <Message>`.
 func (e *ValidationError) Error() string {
 	return fmt.Sprintf("field %q: %s", e.Field, e.Message)
 }
