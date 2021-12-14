@@ -669,6 +669,66 @@ func TestFormatErrors_JoinsMessages(t *testing.T) {
 	}
 }
 
+func TestValidate_CombinedRules_MultipleViolationsOnSameField(t *testing.T) {
+	data := decode(t, `{"code": "x"}`)
+	schema := map[string]Rule{
+		"code": {
+			Kind:      KindString,
+			Required:  true,
+			MinLength: intPtr(3),
+			Pattern:   `^[A-Z]+$`,
+			Enum:      []interface{}{"ABC", "DEF"},
+		},
+	}
+
+	errs := Validate(data, schema)
+	if len(errs) != 3 {
+		t.Fatalf("expected 3 errors (minLength, pattern, enum), got %d: %v", len(errs), errs)
+	}
+	for _, err := range errs {
+		if err.(*ValidationError).Field != "code" {
+			t.Fatalf("expected all errors for field %q, got %q", "code", err.(*ValidationError).Field)
+		}
+	}
+}
+
+func TestValidateFirst_CombinedRules_StopsAtFirstViolation(t *testing.T) {
+	data := decode(t, `{"code": "x"}`)
+	schema := map[string]Rule{
+		"code": {
+			Kind:      KindString,
+			Required:  true,
+			MinLength: intPtr(3),
+			Pattern:   `^[A-Z]+$`,
+			Enum:      []interface{}{"ABC", "DEF"},
+		},
+	}
+
+	err := ValidateFirst(data, schema)
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+}
+
+func TestValidate_CombinedRules_ArrayOfEnumConstrainedStrings(t *testing.T) {
+	data := decode(t, `{"roles": ["admin", "superuser", "viewer"]}`)
+	schema := map[string]Rule{
+		"roles": {
+			Kind:     KindArray,
+			Required: true,
+			Items:    &Rule{Kind: KindString, Enum: []interface{}{"admin", "editor", "viewer"}},
+		},
+	}
+
+	errs := Validate(data, schema)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].(*ValidationError).Field != "roles[1]" {
+		t.Fatalf("expected error for field %q, got %q", "roles[1]", errs[0].(*ValidationError).Field)
+	}
+}
+
 func TestValidate_WrongType(t *testing.T) {
 	data := decode(t, `{"name": "Linus Torvalds", "age": "thirty"}`)
 
