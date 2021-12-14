@@ -1,6 +1,22 @@
 # go-json-validator
 
-A lightweight, schema-lite JSON validator built on the Go standard library — checks required fields and basic types on `map[string]interface{}` data.
+A lightweight, schema-lite JSON validator built entirely on the Go standard library. Describe each field of a `map[string]interface{}` payload with a `Rule` and get back every violation (or just the first one) as plain, structured errors.
+
+## Features
+
+- Required fields and basic type checks (`string`, `number`, `bool`, `array`, `object`)
+- [String length rules](#string-length-rules) — `MinLength` / `MaxLength`
+- [Numeric range rules](#numeric-range-rules) — `Min` / `Max`
+- [Pattern rule](#pattern-rule) — regular-expression matching for strings
+- [Enum rule](#enum-rule) — restrict a value to a fixed set of options
+- [Nested objects](#nested-objects) — recursive sub-schemas via `Properties`
+- [Arrays](#arrays) — per-element rules and `MinItems` / `MaxItems`
+- [Custom error messages](#custom-error-messages) — override messages per field or per check
+- [Stopping at the first error](#stopping-at-the-first-error) — `Validate` vs `ValidateFirst`
+- [Validating JSON directly](#validating-json-directly) — `ValidateJSON` / `ValidateJSONString`
+- [Formatting errors](#formatting-errors) — `FormatErrors` for quick display/logging
+- JSON `null` is treated the same as a missing field
+- Deterministic error ordering (fields are visited in sorted order)
 
 ## Usage
 
