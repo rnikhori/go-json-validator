@@ -2,8 +2,42 @@ package validator
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
+
+func ExampleValidate() {
+	minLen := 3
+	schema := map[string]Rule{
+		"name": {Kind: KindString, Required: true, MinLength: &minLen},
+		"age":  {Kind: KindNumber, Required: true},
+	}
+
+	data := map[string]interface{}{
+		"age": "thirty",
+	}
+
+	errs := Validate(data, schema)
+	fmt.Println(FormatErrors(errs))
+	// Output:
+	// field "age": expected type number, got string
+	// field "name": is required but missing
+}
+
+func ExampleValidateFirst() {
+	schema := map[string]Rule{
+		"name": {Kind: KindString, Required: true},
+		"age":  {Kind: KindNumber, Required: true},
+	}
+
+	data := map[string]interface{}{
+		"age": "thirty",
+	}
+
+	fmt.Println(ValidateFirst(data, schema))
+	// Output:
+	// field "age": expected type number, got string
+}
 
 func userSchema() map[string]Rule {
 	return map[string]Rule{
